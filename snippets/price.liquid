@@ -1,6 +1,6 @@
 {%- doc -%}
   This snippet is used to render a product card.
-  It is used in the product block,featured product block, and the product card block.
+  It is used in the product block, featured product block, and the product card block.
 
   @param {product} product_resource - The product to render
   @param {boolean} [show_unit_price] - Whether to show the unit price
@@ -10,17 +10,29 @@
 {%- liquid
   assign show_unit_price = show_unit_price | default: false
   assign show_sale_price_first = show_sale_price_first | default: false
+
   assign selected_variant = product_resource.selected_or_first_available_variant
+
   assign price = selected_variant.price
   assign compare_at_price = selected_variant.compare_at_price
 
   assign show_compare_price = false
+
   if compare_at_price > price
     assign show_compare_price = true
   endif
 
+  # Calculate discount BEFORE converting prices to money strings
+  assign discount_percentage = 0
+
+  if compare_at_price > price and compare_at_price > 0
+    assign discount_amount = compare_at_price | minus: price
+    assign discount_percentage = discount_amount | times: 100.0 | divided_by: compare_at_price | round
+  endif
+
   if product_resource == blank
     assign price = 1999
+    assign discount_percentage = 0
   endif
 
   # Checks if product handle matches the closest product's handle (i.e. product page)
@@ -29,8 +41,8 @@
     assign price = price | money_with_currency
     assign compare_at_price = compare_at_price | money_with_currency
 
-    # Checks if product handle does not match the closest product's handle (i.e. product card)
-    # and if the currency code is enabled for product cards
+  # Checks if product handle does not match the closest product's handle (i.e. product card)
+  # and if the currency code is enabled for product cards
   elsif product.handle != closest.product.handle and settings.currency_code_enabled_product_cards
     assign price = price | money_with_currency
     assign compare_at_price = compare_at_price | money_with_currency
@@ -39,22 +51,10 @@
     assign price = price | money
     assign compare_at_price = compare_at_price | money
   endif
-
-# Calculation Discount price for Collection
-assign discount_percentage = 0
-if template.name != 'product'
-  if compare_at_price > price and compare_at_price > 0
-    assign discount_amount = compare_at_price | minus: price
-    assign discount_percentage = discount_amount | times: 100.0 | divided_by: compare_at_price | round
-  endif
-endif
-
-# Calculation Discount price for product details
-assign current_price = product.price
-assign original_price = product.compare_at_price
 -%}
 
 <div ref="priceContainer">
+
   {% if show_sale_price_first == false and show_compare_price %}
     <span role="group">
       <span class="visually-hidden">{{ 'content.price_regular' | t }}&nbsp;</span>
@@ -77,7 +77,8 @@ assign original_price = product.compare_at_price
       <span class="compare-at-price">{{- compare_at_price -}}</span>
     </span>
   {% endif %}
-  {%- if selected_variant.unit_price and show_unit_price %}
+
+  {%- if selected_variant.unit_price and show_unit_price -%}
     {%- liquid
       if product.handle == closest.product.handle and settings.currency_code_enabled_product_pages
         assign unit_price = selected_variant.unit_price | money_with_currency
@@ -87,21 +88,18 @@ assign original_price = product.compare_at_price
         assign unit_price = selected_variant.unit_price | money
       endif
     -%}
+
     {% render 'unit-price', price: unit_price, measurement: selected_variant.unit_price_measurement %}
   {%- endif -%}
 
-  {%- if original_price > current_price and original_price > 0 -%}
-  {%- assign discount_amount = original_price | minus: current_price -%}
-  {%- assign discount_percentage = discount_amount | times: 100.0 | divided_by: original_price | round -%}
-  <span class="discount-percentage">
-    {{ discount_percentage }}% OFF
-  </span>
-  {%- endif -%}
+  {%- comment -%}
+    Show discount percentage on collection/product cards.
+  {%- endcomment -%}
 
-  {%- if template.name != 'product' and discount_percentage > 0 -%}
-  <span class="discount-percentage">
-    {{ discount_percentage }}% OFF
-  </span>
+  {%- if discount_percentage > 0 and product.handle != closest.product.handle -%}
+    <span class="discount-percentage">
+      {{ discount_percentage }}% OFF
+    </span>
   {%- endif -%}
 
 </div>
