@@ -605,66 +605,79 @@ class SortingFilterComponent extends Component {
    * Updates filter and sorting
    * @param {Event} event - The change event
    */
-    updateFilterAndSorting(event) {
+  updateFilterAndSorting(event) {
+  const facetsForm =
+    this.closest('facets-form-component') ||
+    this.closest('.shopify-section')?.querySelector('facets-form-component');
+
+    if (!(facetsForm instanceof FacetsFormComponent)) return;
+
       const target = event.target;
 
       if (
-        !(target instanceof HTMLInputElement) &&
-        !(target instanceof HTMLSelectElement)
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLSelectElement
       ) {
-        return;
-      }
+        const sortValue = target.value;
 
-      if (target.name !== 'sort_by') return;
-
-      const sortValue = target.value;
-
-      // Custom discount sorting
-      if (
-        sortValue === 'discount_high' ||
-        sortValue === 'discount_low'
-      ) {
-        event.preventDefault();
-        this.sortProductsByDiscount(sortValue);
-
-        const details = this.querySelector('details');
-        if (details) details.removeAttribute('open');
-
-        return;
-      }
-
-      // Normal Shopify sorting
-      const facetsForm =
-        this.closest('facets-form-component') ||
-        this.closest('.shopify-section')?.querySelector(
-          'facets-form-component'
-        );
-
-      if (!(facetsForm instanceof FacetsFormComponent)) return;
-
-      const isMobile = window.innerWidth < 750;
-      const shouldDisable =
-        this.dataset.shouldUseSelectOnMobile === 'true';
-
-      if (target instanceof HTMLSelectElement) {
-        target.disabled = true;
-      } else {
-        this.querySelectorAll('input[name="sort_by"]').forEach((input) => {
-          input.disabled = true;
-        });
-      }
-
-      facetsForm.updateFilters();
-      this.updateFacetStatus(event);
+        /*
+        * Custom discount sorting.
+        *
+        * Do NOT call facetsForm.updateFilters()
+        * because Shopify does not support discount_high
+        * or discount_low as native sort_by values.
+        */
+        if (
+      sortValue === 'discount_high' ||
+      sortValue === 'discount_low'
+    ) {
+      this.sortProductsByDiscount(sortValue);
 
       const details = this.querySelector('details');
-      if (details) details.removeAttribute('open');
 
-      if (isMobile && shouldDisable) {
-        const select = this.querySelector('select[name="sort_by"]');
-        if (select) select.disabled = false;
+      if (details) {
+        details.removeAttribute('open');
       }
+
+      return;
     }
+
+
+  /*
+   * Normal Shopify sorting.
+   */
+  const isMobile = window.innerWidth < 750;
+  const shouldDisable = this.dataset.shouldUseSelectOnMobile === 'true';
+
+  if (target instanceof HTMLSelectElement) {
+    target.disabled = true;
+  } else if (target instanceof HTMLInputElement) {
+    const inputs = this.querySelectorAll('input[name="sort_by"]');
+
+    inputs.forEach((input) => {
+      input.disabled = true;
+    });
+  }
+
+  facetsForm.updateFilters();
+
+  this.updateFacetStatus(event);
+
+  const details = this.querySelector('details');
+
+  if (details) {
+    details.removeAttribute('open');
+  }
+
+  if (isMobile && shouldDisable) {
+    const select = this.querySelector('select[name="sort_by"]');
+
+    if (select) {
+      select.disabled = false;
+    }
+  }
+}
+
 
   /**
    * Updates the facet status
