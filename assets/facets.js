@@ -653,22 +653,32 @@ class SortingFilterComponent extends Component {
 
   const target = event.target;
 
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLSelectElement
+  ) {
+    const sortValue = target.value;
+
+    /*
+     * Custom discount sorting.
+     *
+     * Do NOT call facetsForm.updateFilters()
+     * because Shopify does not support discount_high
+     * or discount_low as native sort_by values.
+     */
     if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLSelectElement
+        sortValue === 'discount_high' ||
+        sortValue === 'discount_low'
       ) {
-        if (
-          target.name === 'sort_by' &&
-          (target.value === 'discount_high' ||
-            target.value === 'discount_low')
-        ) {
-          this.sortProductsByDiscount(target.value);
+        this.sortProductsByDiscount(sortValue);
 
-          const details = this.querySelector('details');
-          if (details) details.removeAttribute('open');
+        const details = this.querySelector('details');
 
-          return;
+        if (details) {
+          details.removeAttribute('open');
         }
+
+        return;
       }
   }
 
