@@ -41,10 +41,8 @@
   endif
 
 # Calculation Discount price
-{%- assign current_price = product.price -%}
-{%- assign original_price = product.compare_at_price -%}
-
-
+assign current_price = product.price
+assign original_price = product.compare_at_price
 -%}
 
 <div ref="priceContainer">
