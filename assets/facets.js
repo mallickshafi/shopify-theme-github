@@ -598,19 +598,22 @@ class SortingFilterComponent extends Component {
 
   const target = event.target;
 
-  /*
-   * Custom discount sorting
-   */
   if (
     target instanceof HTMLInputElement ||
     target instanceof HTMLSelectElement
   ) {
     const sortValue = target.value;
 
+    /*
+     * Custom discount sorting.
+     *
+     * Do NOT call facetsForm.updateFilters()
+     * because Shopify does not support discount_high
+     * or discount_low as native sort_by values.
+     */
     if (sortValue === 'discount_high' || sortValue === 'discount_low') {
       this.sortProductsByDiscount(sortValue);
-
-      this.updateFacetStatus(event);
+      this.updateCustomSortStatus(sortValue);
 
       const details = this.querySelector('details');
 
@@ -623,10 +626,9 @@ class SortingFilterComponent extends Component {
   }
 
   /*
-   * Normal Shopify sorting
+   * Normal Shopify sorting.
    */
   const isMobile = window.innerWidth < 750;
-
   const shouldDisable = this.dataset.shouldUseSelectOnMobile === 'true';
 
   if (target instanceof HTMLSelectElement) {
@@ -658,6 +660,7 @@ class SortingFilterComponent extends Component {
   }
 }
 
+
   /**
    * Updates the facet status
    * @param {Event} event - The change event
@@ -678,23 +681,39 @@ class SortingFilterComponent extends Component {
   sortProductsByDiscount(sortValue) {
     const section = this.closest('.shopify-section');
 
-    if (!section) return;
+    if (!section) {
+      console.error('Discount sorting: Shopify section not found.');
+      return;
+    }
 
     const productGrid = section.querySelector(
       '[data-testid="product-grid"]'
     );
 
-    if (!productGrid) return;
+    if (!productGrid) {
+      console.error('Discount sorting: Product grid not found.');
+      return;
+    }
 
     const products = Array.from(
-      productGrid.querySelectorAll('.product-grid__item[data-discount]')
+      productGrid.querySelectorAll(
+        '.product-grid__item[data-discount]'
+      )
     );
 
-    if (!products.length) return;
+    if (!products.length) {
+      console.warn(
+        'Discount sorting: No products with data-discount found.'
+      );
+      return;
+    }
 
+    /*
+    * Sort products by discount percentage.
+    */
     products.sort((a, b) => {
-      const discountA = parseFloat(a.dataset.discount) || 0;
-      const discountB = parseFloat(b.dataset.discount) || 0;
+      const discountA = Number(a.dataset.discount) || 0;
+      const discountB = Number(b.dataset.discount) || 0;
 
       if (sortValue === 'discount_high') {
         return discountB - discountA;
@@ -703,51 +722,78 @@ class SortingFilterComponent extends Component {
       return discountA - discountB;
     });
 
+    /*
+    * Reinsert products in the new order.
+    */
+    const fragment = document.createDocumentFragment();
+
     products.forEach((product) => {
-      productGrid.appendChild(product);
+      fragment.appendChild(product);
+    });
+
+    productGrid.appendChild(fragment);
+
+    /*
+    * Update selected radio buttons.
+    */
+    this.querySelectorAll(
+      'input[name="sort_by"]'
+    ).forEach((input) => {
+      if (!(input instanceof HTMLInputElement)) return;
+
+      input.checked = input.value === sortValue;
     });
 
     /*
-    * Update the selected sorting option visually.
+    * Update aria-selected and tabindex.
     */
-    this.querySelectorAll('.sorting-filter__option').forEach((option) => {
-      const input = option.querySelector('input[name="sort_by"]');
+    this.querySelectorAll(
+      '.sorting-filter__option'
+    ).forEach((option) => {
+      const input = option.querySelector(
+        'input[name="sort_by"]'
+      );
 
-      if (!input) return;
+      if (!(input instanceof HTMLInputElement)) return;
 
-      const isSelected = input.value === sortValue;
-
-      input.checked = isSelected;
+      const selected = input.value === sortValue;
 
       option.setAttribute(
         'aria-selected',
-        isSelected ? 'true' : 'false'
+        selected ? 'true' : 'false'
       );
 
       option.setAttribute(
         'tabindex',
-        isSelected ? '0' : '-1'
+        selected ? '0' : '-1'
       );
     });
 
     /*
-    * Update the mobile select.
+    * Update mobile select.
     */
-    const select = this.querySelector('select[name="sort_by"]');
+    const select = this.querySelector(
+      'select[name="sort_by"]'
+    );
 
-    if (select) {
+    if (select instanceof HTMLSelectElement) {
       select.value = sortValue;
     }
 
     /*
-    * Save the custom sort in the browser URL.
+    * Update the status text.
+    */
+    this.updateCustomSortStatus(sortValue);
+
+    /*
+    * Store the custom sorting value in the URL.
     */
     const url = new URL(window.location.href);
 
     url.searchParams.set('sort_by', sortValue);
 
     /*
-    * Remove Shopify pagination when changing sorting.
+    * Always start from page 1 after changing sorting.
     */
     url.searchParams.delete('page');
 
