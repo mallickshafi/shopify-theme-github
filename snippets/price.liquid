@@ -39,6 +39,12 @@
     assign price = price | money
     assign compare_at_price = compare_at_price | money
   endif
+
+# Calculation Discount price
+{%- assign current_price = product.price -%}
+{%- assign original_price = product.compare_at_price -%}
+
+
 -%}
 
 <div ref="priceContainer">
@@ -76,4 +82,14 @@
     -%}
     {% render 'unit-price', price: unit_price, measurement: selected_variant.unit_price_measurement %}
   {%- endif -%}
+
+  {%- if original_price > current_price and original_price > 0 -%}
+  {%- assign discount_amount = original_price | minus: current_price -%}
+  {%- assign discount_percentage = discount_amount | times: 100.0 | divided_by: original_price | round -%}
+
+  <span class="discount-percentage">
+    {{ discount_percentage }}% OFF
+  </span>
+  {%- endif -%}
+
 </div>
