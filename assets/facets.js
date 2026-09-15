@@ -455,20 +455,59 @@ class SortingFilterComponent extends Component {
   requiredRefs = ['details', 'summary', 'listbox'];
 
   connectedCallback() {
-  super.connectedCallback();
+    super.connectedCallback();
 
-  const url = new URL(window.location.href);
-  const sortValue = url.searchParams.get('sort_by');
+    // Register only once for this component instance.
+    if (this.dataset.discountChangeBound === 'true') return;
+    this.dataset.discountChangeBound = 'true';
 
-  if (
-    sortValue === 'discount_high' ||
-    sortValue === 'discount_low'
-  ) {
-    requestAnimationFrame(() => {
-      this.sortProductsByDiscount(sortValue);
-    });
+    this.addEventListener(
+      'change',
+      (event) => {
+        const target = event.target;
+
+        if (
+          !(target instanceof HTMLInputElement) &&
+          !(target instanceof HTMLSelectElement)
+        ) {
+          return;
+        }
+
+        if (target.name !== 'sort_by') return;
+
+        const sortValue = target.value;
+
+        if (
+          sortValue !== 'discount_high' &&
+          sortValue !== 'discount_low'
+        ) {
+          return;
+        }
+
+        // Prevent Horizon's normal sorting/filter handler from taking over.
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        this.sortProductsByDiscount(sortValue);
+
+        const details = this.querySelector('details');
+        if (details) details.removeAttribute('open');
+      },
+      true
+    );
+
+    // Apply the selected custom sort when the page loads or the section is re-rendered.
+    const sortValue = new URL(window.location.href).searchParams.get('sort_by');
+
+    if (
+      sortValue === 'discount_high' ||
+      sortValue === 'discount_low'
+    ) {
+      requestAnimationFrame(() => {
+        this.sortProductsByDiscount(sortValue);
+      });
+    }
   }
-}
 
   /**
    * Handles keyboard navigation in the sorting dropdown
@@ -614,32 +653,22 @@ class SortingFilterComponent extends Component {
 
   const target = event.target;
 
-  if (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLSelectElement
-  ) {
-    const sortValue = target.value;
-
-    /*
-     * Custom discount sorting.
-     *
-     * Do NOT call facetsForm.updateFilters()
-     * because Shopify does not support discount_high
-     * or discount_low as native sort_by values.
-     */
     if (
-        sortValue === 'discount_high' ||
-        sortValue === 'discount_low'
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLSelectElement
       ) {
-        this.sortProductsByDiscount(sortValue);
+        if (
+          target.name === 'sort_by' &&
+          (target.value === 'discount_high' ||
+            target.value === 'discount_low')
+        ) {
+          this.sortProductsByDiscount(target.value);
 
-        const details = this.querySelector('details');
+          const details = this.querySelector('details');
+          if (details) details.removeAttribute('open');
 
-        if (details) {
-          details.removeAttribute('open');
+          return;
         }
-
-        return;
       }
   }
 
