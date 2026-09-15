@@ -457,120 +457,53 @@ class SortingFilterComponent extends Component {
   connectedCallback() {
     super.connectedCallback();
 
-    // Handle custom discount sorting before Horizon's default sorting.
-    this.addEventListener('change', this.#handleChange, true);
-  }
+    const url = new URL(window.location.href);
+    const sortValue = url.searchParams.get('sort_by');
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-
-    this.removeEventListener('change', this.#handleChange, true);
-  }
-
-  /**
-   * Handles sort_by changes.
-   *
-   * Custom values:
-   * - discount_high
-   * - discount_low
-   */
-  #handleChange = (event) => {
-    const target = event.target;
-
-    if (
-      !(target instanceof HTMLInputElement) &&
-      !(target instanceof HTMLSelectElement)
-    ) {
-      return;
-    }
-
-    if (target.name !== 'sort_by') {
-      return;
-    }
-
-    const sortValue = target.value;
-
-    /*
-     * Custom discount sorting.
-     *
-     * Do NOT send a Shopify section request for these values.
-     * We sort the existing product cards directly in the browser.
-     */
     if (
       sortValue === 'discount_high' ||
       sortValue === 'discount_low'
     ) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-
-      this.sortProductsByDiscount(sortValue);
-      this.#closeDropdown();
-
-      return;
+      requestAnimationFrame(() => {
+        this.sortProductsByDiscount(sortValue);
+      });
     }
-  };
+  }
 
   /**
-   * Handles keyboard navigation in the sorting dropdown.
-   *
-   * @param {KeyboardEvent} event
+   * Handles keyboard navigation in the sorting dropdown
+   * @param {KeyboardEvent} event - The keyboard event
    */
   handleKeyDown = (event) => {
     const { listbox } = this.refs;
+    if (!(listbox instanceof Element)) return;
 
-    if (!(listbox instanceof Element)) {
-      return;
-    }
-
-    const options = Array.from(
-      listbox.querySelectorAll('[role="option"]')
-    );
-
-    const currentFocused = options.find(
-      (option) =>
-        option instanceof HTMLElement &&
-        option.tabIndex === 0
-    );
-
-    let newFocusIndex = currentFocused
-      ? options.indexOf(currentFocused)
-      : 0;
+    const options = Array.from(listbox.querySelectorAll('[role="option"]'));
+    const currentFocused = options.find((option) => option instanceof HTMLElement && option.tabIndex === 0);
+    let newFocusIndex = currentFocused ? options.indexOf(currentFocused) : 0;
 
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
-
-        newFocusIndex = Math.min(
-          newFocusIndex + 1,
-          options.length - 1
-        );
-
+        newFocusIndex = Math.min(newFocusIndex + 1, options.length - 1);
         this.#moveFocus(options, newFocusIndex);
         break;
 
       case 'ArrowUp':
         event.preventDefault();
-
-        newFocusIndex = Math.max(
-          newFocusIndex - 1,
-          0
-        );
-
+        newFocusIndex = Math.max(newFocusIndex - 1, 0);
         this.#moveFocus(options, newFocusIndex);
         break;
 
       case 'Enter':
       case ' ':
         if (event.target instanceof Element) {
-          const targetOption =
-            event.target.closest('[role="option"]');
-
+          const targetOption = event.target.closest('[role="option"]');
           if (targetOption) {
             event.preventDefault();
             this.#selectOption(targetOption);
           }
         }
-
         break;
 
       case 'Escape':
@@ -581,38 +514,18 @@ class SortingFilterComponent extends Component {
   };
 
   /**
-   * Handles details toggle event.
+   * Handles details toggle event
    */
   handleToggle = () => {
-    const {
-      details,
-      summary,
-      listbox,
-    } = this.refs;
-
-    if (
-      !(details instanceof HTMLDetailsElement) ||
-      !(summary instanceof HTMLElement)
-    ) {
-      return;
-    }
+    const { details, summary, listbox } = this.refs;
+    if (!(details instanceof HTMLDetailsElement) || !(summary instanceof HTMLElement)) return;
 
     const isOpen = details.open;
+    summary.setAttribute('aria-expanded', isOpen.toString());
 
-    summary.setAttribute(
-      'aria-expanded',
-      isOpen.toString()
-    );
-
-    if (
-      isOpen &&
-      listbox instanceof Element
-    ) {
-      const selectedOption =
-        listbox.querySelector(
-          '[aria-selected="true"]'
-        );
-
+    if (isOpen && listbox instanceof Element) {
+      // Move focus to selected option when dropdown opens
+      const selectedOption = listbox.querySelector('[aria-selected="true"]');
       if (selectedOption instanceof HTMLElement) {
         selectedOption.focus();
       }
@@ -620,20 +533,20 @@ class SortingFilterComponent extends Component {
   };
 
   /**
-   * Moves focus between sorting options.
-   *
-   * @param {Element[]} options
-   * @param {number} newIndex
+   * Moves focus between options
+   * @param {Element[]} options - The option elements
+   * @param {number} newIndex - The index of the option to focus
    */
   #moveFocus(options, newIndex) {
+    // Remove tabindex from all options
     options.forEach((option) => {
       if (option instanceof HTMLElement) {
         option.tabIndex = -1;
       }
     });
 
+    // Set tabindex and focus on new option
     const targetOption = options[newIndex];
-
     if (targetOption instanceof HTMLElement) {
       targetOption.tabIndex = 0;
       targetOption.focus();
@@ -641,391 +554,117 @@ class SortingFilterComponent extends Component {
   }
 
   /**
-   * Selects a sorting option.
-   *
-   * @param {Element} option
+   * Selects an option and triggers form submission
+   * @param {Element} option - The option element to select
    */
   #selectOption(option) {
-    const input =
-      option.querySelector(
-        'input[type="radio"]'
-      );
-
-    if (
-      !(input instanceof HTMLInputElement) ||
-      !(option instanceof HTMLElement)
-    ) {
-      return;
-    }
-
-    this
-      .querySelectorAll('[role="option"]')
-      .forEach((opt) => {
-        opt.setAttribute(
-          'aria-selected',
-          'false'
-        );
+    const input = option.querySelector('input[type="radio"]');
+    if (input instanceof HTMLInputElement && option instanceof HTMLElement) {
+      // Update aria-selected states
+      this.querySelectorAll('[role="option"]').forEach((opt) => {
+        opt.setAttribute('aria-selected', 'false');
       });
+      option.setAttribute('aria-selected', 'true');
 
-    option.setAttribute(
-      'aria-selected',
-      'true'
-    );
+      // Trigger click on the input to ensure normal form behavior
+      input.click();
 
-    /*
-     * This triggers the change event.
-     * Our #handleChange() catches custom discount
-     * sorting values before Shopify handles them.
-     */
-    input.click();
-
-    this.#closeDropdown();
+      // Close dropdown and return focus (handles tabIndex reset)
+      this.#closeDropdown();
+    }
   }
 
   /**
-   * Closes the sorting dropdown.
+   * Closes the dropdown and returns focus to summary
    */
   #closeDropdown() {
-    const {
-      details,
-      summary,
-    } = this.refs;
+    const { details, summary } = this.refs;
+    if (details instanceof HTMLDetailsElement) {
+      // Reset focus to match the actual selected option
+      const options = this.querySelectorAll('[role="option"]');
+      const selectedOption = this.querySelector('[aria-selected="true"]');
 
-    if (!(details instanceof HTMLDetailsElement)) {
-      return;
-    }
+      options.forEach((opt) => {
+        if (opt instanceof HTMLElement) {
+          opt.tabIndex = -1;
+        }
+      });
 
-    const options =
-      this.querySelectorAll(
-        '[role="option"]'
-      );
-
-    const selectedOption =
-      this.querySelector(
-        '[aria-selected="true"]'
-      );
-
-    options.forEach((option) => {
-      if (option instanceof HTMLElement) {
-        option.tabIndex = -1;
+      if (selectedOption instanceof HTMLElement) {
+        selectedOption.tabIndex = 0;
       }
-    });
 
-    if (selectedOption instanceof HTMLElement) {
-      selectedOption.tabIndex = 0;
-    }
-
-    details.open = false;
-
-    if (summary instanceof HTMLElement) {
-      summary.focus();
+      details.open = false;
+      if (summary instanceof HTMLElement) {
+        summary.focus();
+      }
     }
   }
 
   /**
-   * Handles normal Shopify sorting.
-   *
-   * Custom discount sorting is handled separately
-   * by #handleChange().
-   *
-   * @param {Event} event
+   * Updates filter and sorting
+   * @param {Event} event - The change event
    */
-  updateFilterAndSorting(event) {
+  updateFilterAndSorting(event) {updateFilterAndSorting(event) {
     const target = event.target;
 
-    if (
-      !(target instanceof HTMLInputElement) &&
-      !(target instanceof HTMLSelectElement)
-    ) {
-      return;
-    }
+      if (
+        !(target instanceof HTMLInputElement) &&
+        !(target instanceof HTMLSelectElement)
+      ) {
+        return;
+      }
 
-    if (target.name !== 'sort_by') {
-      return;
-    }
+      if (target.name !== 'sort_by') return;
 
-    const sortValue = target.value;
+      const sortValue = target.value;
 
-    /*
-     * Custom discount sorting.
-     */
-    if (
-      sortValue === 'discount_high' ||
-      sortValue === 'discount_low'
-    ) {
-      event.preventDefault();
+      // Custom discount sorting
+      if (
+        sortValue === 'discount_high' ||
+        sortValue === 'discount_low'
+      ) {
+        event.preventDefault();
+        this.sortProductsByDiscount(sortValue);
 
-      this.sortProductsByDiscount(
-        sortValue
-      );
+        const details = this.querySelector('details');
+        if (details) details.removeAttribute('open');
 
-      this.#closeDropdown();
+        return;
+      }
 
-      return;
-    }
-
-    /*
-     * Normal Shopify sorting.
-     */
-    const facetsForm =
-      this.closest(
-        'facets-form-component'
-      ) ||
-      this
-        .closest('.shopify-section')
-        ?.querySelector(
+      // Normal Shopify sorting
+      const facetsForm =
+        this.closest('facets-form-component') ||
+        this.closest('.shopify-section')?.querySelector(
           'facets-form-component'
         );
 
-    if (
-      !(facetsForm instanceof FacetsFormComponent)
-    ) {
-      return;
-    }
+      if (!(facetsForm instanceof FacetsFormComponent)) return;
 
-    const isMobile =
-      window.innerWidth < 750;
+      const isMobile = window.innerWidth < 750;
+      const shouldDisable =
+        this.dataset.shouldUseSelectOnMobile === 'true';
 
-    const shouldDisable =
-      this.dataset.shouldUseSelectOnMobile ===
-      'true';
-
-    /*
-     * Disable sorting controls while Shopify
-     * processes the request.
-     */
-    const controls =
-      this.querySelectorAll(
-        '[name="sort_by"]'
-      );
-
-    controls.forEach((control) => {
-      if (
-        control instanceof HTMLInputElement ||
-        control instanceof HTMLSelectElement
-      ) {
-        control.disabled = true;
-      }
-    });
-
-    /*
-     * Let Shopify perform its normal sorting.
-     */
-    facetsForm.updateFilters();
-
-    this.updateFacetStatus(event);
-
-    /*
-     * Re-enable controls.
-     */
-    controls.forEach((control) => {
-      if (
-        control instanceof HTMLInputElement ||
-        control instanceof HTMLSelectElement
-      ) {
-        control.disabled = false;
-      }
-    });
-
-    /*
-     * Make sure mobile select remains enabled.
-     */
-    if (shouldDisable && isMobile) {
-      const select =
-        this.querySelector(
-          'select[name="sort_by"]'
-        );
-
-      if (
-        select instanceof HTMLSelectElement
-      ) {
-        select.disabled = false;
-      }
-    }
-
-    this.#closeDropdown();
-  }
-
-  /**
-   * Sorts products by discount percentage.
-   *
-   * Requires product cards like:
-   *
-   * <li data-discount="50">
-   *
-   * @param {string} sortValue
-   */
-  sortProductsByDiscount(sortValue) {
-    /*
-     * Find the current product grid.
-     */
-    const grid =
-      this
-        .closest('.shopify-section')
-        ?.querySelector(
-          '#product-grid, .product-grid, [id^="product-grid"]'
-        ) ||
-      document.querySelector(
-        '#product-grid, .product-grid, [id^="product-grid"]'
-      );
-
-    if (!grid) {
-      console.warn(
-        'Discount sorting: product grid was not found.'
-      );
-
-      return;
-    }
-
-    /*
-     * Get all product cards that have
-     * data-discount.
-     */
-    const products = Array.from(
-      grid.querySelectorAll(
-        'li[data-discount]'
-      )
-    );
-
-    if (!products.length) {
-      console.warn(
-        'Discount sorting: no product cards with data-discount were found.'
-      );
-
-      return;
-    }
-
-    /*
-     * Sort by discount percentage.
-     */
-    products.sort((a, b) => {
-      const discountA =
-        Number.parseFloat(
-          a.dataset.discount
-        ) || 0;
-
-      const discountB =
-        Number.parseFloat(
-          b.dataset.discount
-        ) || 0;
-
-      if (
-        sortValue === 'discount_high'
-      ) {
-        return discountB - discountA;
+      if (target instanceof HTMLSelectElement) {
+        target.disabled = true;
+      } else {
+        this.querySelectorAll('input[name="sort_by"]').forEach((input) => {
+          input.disabled = true;
+        });
       }
 
-      return discountA - discountB;
-    });
+      facetsForm.updateFilters();
+      this.updateFacetStatus(event);
 
-    /*
-     * Reinsert products in sorted order.
-     */
-    const fragment =
-      document.createDocumentFragment();
+      const details = this.querySelector('details');
+      if (details) details.removeAttribute('open');
 
-    products.forEach((product) => {
-      fragment.appendChild(product);
-    });
-
-    grid.appendChild(fragment);
-
-    /*
-     * Update selected radio/select value.
-     */
-    this
-      .querySelectorAll(
-        '[name="sort_by"]'
-      )
-      .forEach((control) => {
-        if (
-          control instanceof HTMLInputElement
-        ) {
-          control.checked =
-            control.value === sortValue;
-        }
-
-        if (
-          control instanceof HTMLSelectElement
-        ) {
-          control.value = sortValue;
-        }
-      });
-
-    /*
-     * Update URL without reloading the page.
-     */
-    const url =
-      new URL(
-        window.location.href
-      );
-
-    url.searchParams.set(
-      'sort_by',
-      sortValue
-    );
-
-    history.replaceState(
-      { ...history.state },
-      '',
-      url.toString()
-    );
-
-    /*
-     * Dispatch an event so any Horizon
-     * components listening for sorting changes
-     * can react without causing a Shopify reload.
-     */
-    this.dispatchEvent(
-      new CustomEvent(
-        'discount-sort-updated',
-        {
-          bubbles: true,
-          detail: {
-            sortValue,
-          },
-        }
-      )
-    );
-  }
-
-  /**
-   * Updates the facet status text.
-   *
-   * @param {Event} event
-   */
-  updateFacetStatus(event) {
-    if (
-      !(event.target instanceof HTMLSelectElement)
-    ) {
-      return;
+      if (isMobile && shouldDisable) {
+        const select = this.querySelector('select[name="sort_by"]');
+        if (select) select.disabled = false;
+      }
     }
-
-    const details =
-      this.querySelector('details');
-
-    if (!details) {
-      return;
-    }
-
-    const facetStatus =
-      details.querySelector(
-        'facet-status-component'
-      );
-
-    if (
-      !(facetStatus instanceof FacetStatusComponent)
-    ) {
-      return;
-    }
-
-    facetStatus.textContent =
-      event.target.value !==
-      details.dataset.defaultSortBy
-        ? event.target.dataset.optionName ?? ''
-        : '';
-  }
-}
 
 
   /**
