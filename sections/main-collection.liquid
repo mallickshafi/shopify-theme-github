@@ -44,11 +44,24 @@
     {% paginate collection.products by 24 %}
       {% capture children %}
         {% for product in collection.products %}
+
+        {% assign selected_variant = product.selected_or_first_available_variant %}
+        {% assign product_price = selected_variant.price %}
+        {% assign product_compare_at_price = selected_variant.compare_at_price %}
+
+        {% assign discount_percentage = 0 %}
+
+        {% if product_compare_at_price > product_price and product_compare_at_price > 0 %}
+          {% assign discount_amount = product_compare_at_price | minus: product_price %}
+          {% assign discount_percentage = discount_amount | times: 100.0 | divided_by: product_compare_at_price | round %}
+        {% endif %}
+
           <li
             id="{{ section.id }}-{{ product.id }}"
             class="product-grid__item product-grid__item--{{ forloop.index0 }}"
             data-page="{{ paginate.current_page }}"
             data-product-id="{{ product.id }}"
+            data-discount="{{ discount_percentage }}"
             ref="cards[]"
           >
             {% # theme-check-disable %}

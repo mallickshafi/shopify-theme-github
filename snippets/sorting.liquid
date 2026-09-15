@@ -26,6 +26,24 @@
         assign status = option.name
       endif
     endfor
+    <option
+      value="discount_high"
+      {% if results.sort_by == 'discount_high' %}
+        selected
+      {% endif %}
+    >
+      Discount, high to low
+    </option>
+
+    <option
+      value="discount_low"
+      {% if results.sort_by == 'discount_low' %}
+        selected
+      {% endif %}
+    >
+      Discount, low to high
+    </option>
+
   %}
 
   <div class="sorting-filter__container {% if should_use_select_on_mobile %} desktop:hidden {% else %} hidden {% endif %}">
@@ -143,6 +161,76 @@
             </div>
           </label>
         {% endfor %}
+        <label
+  for="sort-option-discount_high-{{ section_id }}"
+>
+  <div
+    class="sorting-filter__option"
+    role="option"
+    aria-selected="{% if sort_by == 'discount_high' %}true{% else %}false{% endif %}"
+    tabindex="{% if sort_by == 'discount_high' %}0{% else %}-1{% endif %}"
+  >
+    <input
+      type="radio"
+      name="sort_by"
+      id="sort-option-discount_high-{{ section_id }}"
+      {% if suffix != blank %}
+        form="FacetFiltersForm--{{ section_id }}-{{ suffix }}"
+      {% endif %}
+      value="discount_high"
+      class="sorting-filter__input"
+      data-option-name="Discount, high to low"
+      {% if sort_by == 'discount_high' %}
+        checked
+      {% endif %}
+      aria-hidden="true"
+    >
+
+    <span class="svg-wrapper icon-checkmark sorting-filter__checkmark">
+      {{- 'icon-checkmark.svg' | inline_asset_content -}}
+    </span>
+
+    <span class="sorting-filter__label">
+      Discount, high to low
+    </span>
+  </div>
+</label>
+
+<label
+  for="sort-option-discount_low-{{ section_id }}"
+>
+  <div
+    class="sorting-filter__option"
+    role="option"
+    aria-selected="{% if sort_by == 'discount_low' %}true{% else %}false{% endif %}"
+    tabindex="{% if sort_by == 'discount_low' %}0{% else %}-1{% endif %}"
+  >
+    <input
+      type="radio"
+      name="sort_by"
+      id="sort-option-discount_low-{{ section_id }}"
+      {% if suffix != blank %}
+        form="FacetFiltersForm--{{ section_id }}-{{ suffix }}"
+      {% endif %}
+      value="discount_low"
+      class="sorting-filter__input"
+      data-option-name="Discount, low to high"
+      {% if sort_by == 'discount_low' %}
+        checked
+      {% endif %}
+      aria-hidden="true"
+    >
+
+    <span class="svg-wrapper icon-checkmark sorting-filter__checkmark">
+      {{- 'icon-checkmark.svg' | inline_asset_content -}}
+    </span>
+
+    <span class="sorting-filter__label">
+      Discount, low to high
+    </span>
+  </div>
+</label>
+
       </floating-panel-component>
     </details>
   </accordion-custom>

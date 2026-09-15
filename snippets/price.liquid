@@ -96,7 +96,7 @@
     Show discount percentage on collection/product cards.
   {%- endcomment -%}
 
-  {%- if discount_percentage > 0 and product.handle != closest.product.handle -%}
+  {%- if discount_percentage -%}
     <span class="discount-percentage">
       {{ discount_percentage }}% OFF
     </span>
