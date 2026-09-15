@@ -13,5 +13,5 @@
   white-space: nowrap;
 }
 .sorting-filter__options {
-    max-height: auto !important;
+    max-height: 380px !important;
 }
