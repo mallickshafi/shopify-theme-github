@@ -856,139 +856,84 @@ class SortingFilterComponent extends Component {
    *
    * @param {string} sortValue
    */
-  sortProductsByDiscount(sortValue) {
-    /*
-     * Find the current product grid.
-     */
-    const grid =
-      this
-        .closest('.shopify-section')
-        ?.querySelector(
-          '#product-grid, .product-grid, [id^="product-grid"]'
-        ) ||
-      document.querySelector(
+sortProductsByDiscount(sortValue) {
+  const grid =
+    this.closest('.shopify-section')
+      ?.querySelector(
         '#product-grid, .product-grid, [id^="product-grid"]'
-      );
-
-    if (!grid) {
-      console.warn(
-        'Discount sorting: product grid was not found.'
-      );
-
-      return;
-    }
-
-    /*
-     * Get all product cards that have
-     * data-discount.
-     */
-    const products = Array.from(
-      grid.querySelectorAll(
-        'li[data-discount]'
-      )
+      ) ||
+    document.querySelector(
+      '#product-grid, .product-grid, [id^="product-grid"]'
     );
 
-    if (!products.length) {
-      console.warn(
-        'Discount sorting: no product cards with data-discount were found.'
-      );
-
-      return;
-    }
-
-    /*
-     * Sort by discount percentage.
-     */
-    products.sort((a, b) => {
-      const discountA =
-        Number.parseFloat(
-          a.dataset.discount
-        ) || 0;
-
-      const discountB =
-        Number.parseFloat(
-          b.dataset.discount
-        ) || 0;
-
-      if (
-        sortValue === 'discount_high'
-      ) {
-        return discountB - discountA;
-      }
-
-      return discountA - discountB;
-    });
-
-    /*
-     * Reinsert products in sorted order.
-     */
-    const fragment =
-      document.createDocumentFragment();
-
-    products.forEach((product) => {
-      fragment.appendChild(product);
-    });
-
-    grid.appendChild(fragment);
-
-    /*
-     * Update selected radio/select value.
-     */
-    this
-      .querySelectorAll(
-        '[name="sort_by"]'
-      )
-      .forEach((control) => {
-        if (
-          control instanceof HTMLInputElement
-        ) {
-          control.checked =
-            control.value === sortValue;
-        }
-
-        if (
-          control instanceof HTMLSelectElement
-        ) {
-          control.value = sortValue;
-        }
-      });
-
-    /*
-     * Update URL without reloading the page.
-     */
-    const url =
-      new URL(
-        window.location.href
-      );
-
-    url.searchParams.set(
-      'sort_by',
-      sortValue
-    );
-
-    history.replaceState(
-      { ...history.state },
-      '',
-      url.toString()
-    );
-
-    /*
-     * Dispatch an event so any Horizon
-     * components listening for sorting changes
-     * can react without causing a Shopify reload.
-     */
-    this.dispatchEvent(
-      new CustomEvent(
-        'discount-sort-updated',
-        {
-          bubbles: true,
-          detail: {
-            sortValue,
-          },
-        }
-      )
-    );
+  if (!grid) {
+    console.warn('Discount sorting: product grid was not found.');
+    return;
   }
+
+  // Get product cards
+  const products = Array.from(
+    grid.querySelectorAll('li[data-discount]')
+  );
+
+  if (!products.length) {
+    console.warn(
+      'Discount sorting: no product cards with data-discount were found.'
+    );
+    return;
+  }
+
+  // Sort products by discount percentage
+  products.sort((a, b) => {
+    const discountA = parseFloat(a.dataset.discount) || 0;
+    const discountB = parseFloat(b.dataset.discount) || 0;
+
+    return sortValue === 'discount_high'
+      ? discountB - discountA
+      : discountA - discountB;
+  });
+
+  // Put products back into the grid
+  const fragment = document.createDocumentFragment();
+
+  products.forEach((product) => {
+    fragment.appendChild(product);
+  });
+
+  grid.appendChild(fragment);
+
+  // Update selected sorting controls
+  this.querySelectorAll('[name="sort_by"]').forEach((control) => {
+    if (control instanceof HTMLInputElement) {
+      control.checked = control.value === sortValue;
+    }
+
+    if (control instanceof HTMLSelectElement) {
+      control.value = sortValue;
+    }
+  });
+
+  // Keep sort_by in URL
+  const url = new URL(window.location.href);
+  url.searchParams.set('sort_by', sortValue);
+
+  history.replaceState(
+    { ...history.state },
+    '',
+    url.toString()
+  );
+
+  // Notify other theme components
+  this.dispatchEvent(
+    new CustomEvent('discount-sort-updated', {
+      bubbles: true,
+      detail: {
+        sortValue,
+      },
+    })
+  );
+}
+
 
   /**
    * Updates the facet status text.
