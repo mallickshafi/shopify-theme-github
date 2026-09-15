@@ -68,6 +68,13 @@
         <option value="discount_low" {% if sort_by == 'discount_low' %} selected {% endif %} > Discount, low to high
         </option>
 
+        <option value="discount-desc" {% if collection.sort_by == 'discount-desc' %}selected{% endif %}>
+        Discount, high to low
+      </option>
+      <option value="discount-asc" {% if collection.sort_by == 'discount-asc' %}selected{% endif %}>
+        Discount, low to high
+      </option>
+
       </select>
       <svg
         aria-hidden="true"
