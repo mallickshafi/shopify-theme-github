@@ -12,3 +12,6 @@
   font-weight: 700;
   white-space: nowrap;
 }
+.sorting-filter__options {
+    max-height: auto !important;
+}
