@@ -1,3 +1,14 @@
 #header-group .announcement-bar {
     background: blueviolet !important;
 }
+.discount-percentage {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 3px 7px;
+  background: #e8f7ec;
+  color: #147a32;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
