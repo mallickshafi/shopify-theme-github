@@ -454,6 +454,61 @@ if (!customElements.get('facet-remove-component')) {
 class SortingFilterComponent extends Component {
   requiredRefs = ['details', 'summary', 'listbox'];
 
+  connectedCallback() {
+  super.connectedCallback();
+
+  // Register only once for this component instance.
+  if (this.dataset.discountChangeBound === 'true') return;
+  this.dataset.discountChangeBound = 'true';
+
+  this.addEventListener(
+    'change',
+    (event) => {
+      const target = event.target;
+
+      if (
+        !(target instanceof HTMLInputElement) &&
+        !(target instanceof HTMLSelectElement)
+      ) {
+        return;
+      }
+
+      if (target.name !== 'sort_by') return;
+
+      const sortValue = target.value;
+
+      if (
+        sortValue !== 'discount_high' &&
+        sortValue !== 'discount_low'
+      ) {
+        return;
+      }
+
+      // Prevent Horizon's normal sorting/filter handler from taking over.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      this.sortProductsByDiscount(sortValue);
+
+      const details = this.querySelector('details');
+      if (details) details.removeAttribute('open');
+    },
+    true
+  );
+
+  // Apply the selected custom sort when the page loads or the section is re-rendered.
+  const sortValue = new URL(window.location.href).searchParams.get('sort_by');
+
+  if (
+    sortValue === 'discount_high' ||
+    sortValue === 'discount_low'
+  ) {
+    requestAnimationFrame(() => {
+      this.sortProductsByDiscount(sortValue);
+    });
+  }
+}
+
   /**
    * Handles keyboard navigation in the sorting dropdown
    * @param {KeyboardEvent} event - The keyboard event
@@ -590,53 +645,73 @@ class SortingFilterComponent extends Component {
    * @param {Event} event - The change event
    */
   updateFilterAndSorting(event) {
-    const facetsForm =
-      this.closest('facets-form-component') || this.closest('.shopify-section')?.querySelector('facets-form-component');
+  const facetsForm =
+    this.closest('facets-form-component') ||
+    this.closest('.shopify-section')?.querySelector('facets-form-component');
 
-    if (!(facetsForm instanceof FacetsFormComponent)) return;
-    const isMobile = window.innerWidth < 750;
+  if (!(facetsForm instanceof FacetsFormComponent)) return;
 
-    const shouldDisable = this.dataset.shouldUseSelectOnMobile === 'true';
+  const target = event.target;
 
-    // Because we have a select element on mobile and a bunch of radio buttons on desktop,
-    // we need to disable the input during "form-submission" to prevent duplicate entries.
-    if (shouldDisable) {
-      if (isMobile) {
-        const inputs = this.querySelectorAll('input[name="sort_by"]');
-        inputs.forEach((input) => {
-          if (!(input instanceof HTMLInputElement)) return;
-          input.disabled = true;
-        });
-      } else {
-        const selectElement = this.querySelector('select[name="sort_by"]');
-        if (!(selectElement instanceof HTMLSelectElement)) return;
-        selectElement.disabled = true;
+  /*
+   * Custom discount sorting
+   */
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLSelectElement
+  ) {
+    const sortValue = target.value;
+
+    if (sortValue === 'discount_high' || sortValue === 'discount_low') {
+      this.sortProductsByDiscount(sortValue);
+
+      this.updateFacetStatus(event);
+
+      const details = this.querySelector('details');
+
+      if (details) {
+        details.removeAttribute('open');
       }
+
+      return;
     }
-
-    facetsForm.updateFilters();
-    this.updateFacetStatus(event);
-
-    // Re-enable the input after the form-submission
-    if (shouldDisable) {
-      if (isMobile) {
-        const inputs = this.querySelectorAll('input[name="sort_by"]');
-        inputs.forEach((input) => {
-          if (!(input instanceof HTMLInputElement)) return;
-          input.disabled = false;
-        });
-      } else {
-        const selectElement = this.querySelector('select[name="sort_by"]');
-        if (!(selectElement instanceof HTMLSelectElement)) return;
-        selectElement.disabled = false;
-      }
-    }
-
-    // Close the details element when a value is selected
-    const { details } = this.refs;
-    if (!(details instanceof HTMLDetailsElement)) return;
-    details.open = false;
   }
+
+  /*
+   * Normal Shopify sorting
+   */
+  const isMobile = window.innerWidth < 750;
+
+  const shouldDisable = this.dataset.shouldUseSelectOnMobile === 'true';
+
+  if (target instanceof HTMLSelectElement) {
+    target.disabled = true;
+  } else if (target instanceof HTMLInputElement) {
+    const inputs = this.querySelectorAll('input[name="sort_by"]');
+
+    inputs.forEach((input) => {
+      input.disabled = true;
+    });
+  }
+
+  facetsForm.updateFilters();
+
+  this.updateFacetStatus(event);
+
+  const details = this.querySelector('details');
+
+  if (details) {
+    details.removeAttribute('open');
+  }
+
+  if (isMobile && shouldDisable) {
+    const select = this.querySelector('select[name="sort_by"]');
+
+    if (select) {
+      select.disabled = false;
+    }
+  }
+}
 
   /**
    * Updates the facet status
