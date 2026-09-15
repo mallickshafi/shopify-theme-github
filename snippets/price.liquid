@@ -40,7 +40,16 @@
     assign compare_at_price = compare_at_price | money
   endif
 
-# Calculation Discount price
+# Calculation Discount price for Collection
+assign discount_percentage = 0
+if template.name != 'product'
+  if compare_at_price > price and compare_at_price > 0
+    assign discount_amount = compare_at_price | minus: price
+    assign discount_percentage = discount_amount | times: 100.0 | divided_by: compare_at_price | round
+  endif
+endif
+
+# Calculation Discount price for product details
 assign current_price = product.price
 assign original_price = product.compare_at_price
 -%}
@@ -84,7 +93,12 @@ assign original_price = product.compare_at_price
   {%- if original_price > current_price and original_price > 0 -%}
   {%- assign discount_amount = original_price | minus: current_price -%}
   {%- assign discount_percentage = discount_amount | times: 100.0 | divided_by: original_price | round -%}
+  <span class="discount-percentage">
+    {{ discount_percentage }}% OFF
+  </span>
+  {%- endif -%}
 
+  {%- if template.name != 'product' and discount_percentage > 0 -%}
   <span class="discount-percentage">
     {{ discount_percentage }}% OFF
   </span>
