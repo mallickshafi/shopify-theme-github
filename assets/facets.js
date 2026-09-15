@@ -614,7 +614,30 @@ class SortingFilterComponent extends Component {
       }
     }
 
-    facetsForm.updateFilters();
+    // facetsForm.updateFilters();
+    // this.updateFacetStatus(event);
+
+    const sortValue =
+      event.target instanceof HTMLSelectElement
+        ? event.target.value
+        : event.target?.value;
+
+    if (sortValue === 'discount_high' || sortValue === 'discount_low') {
+      // Do not send custom sort value to Shopify
+      const url = new URL(window.location.href);
+      url.searchParams.set('sort_by', sortValue);
+      history.pushState({}, '', url);
+
+      facetsForm.updateFilters();
+
+      // Shopify section rendering is asynchronous
+      setTimeout(() => {
+        sortProductsByDiscount(sortValue);
+      }, 500);
+    } else {
+      facetsForm.updateFilters();
+    }
+
     this.updateFacetStatus(event);
 
     // Re-enable the input after the form-submission
@@ -658,6 +681,54 @@ class SortingFilterComponent extends Component {
 
 if (!customElements.get('sorting-filter-component')) {
   customElements.define('sorting-filter-component', SortingFilterComponent);
+}
+
+
+function sortProductsByDiscount(sortOrder) {
+  const productGrid = document.querySelector('#product-grid');
+
+  if (!productGrid) return;
+
+  const products = Array.from(
+    productGrid.querySelectorAll('.product-card, .card-wrapper, .grid__item')
+  );
+
+  if (!products.length) return;
+
+  const getDiscountPercent = (product) => {
+    const priceElement = product.querySelector('[data-compare-at-price], .price--on-sale');
+
+    if (!priceElement) return 0;
+
+    const price = parseFloat(
+      product.querySelector('.price-item--sale')?.textContent
+        ?.replace(/[^0-9.]/g, '') || 0
+    );
+
+    const comparePrice = parseFloat(
+      product.querySelector('.price-item--regular')?.textContent
+        ?.replace(/[^0-9.]/g, '') || 0
+    );
+
+    if (!price || !comparePrice || comparePrice <= price) return 0;
+
+    return ((comparePrice - price) / comparePrice) * 100;
+  };
+
+  products.sort((a, b) => {
+    const discountA = getDiscountPercent(a);
+    const discountB = getDiscountPercent(b);
+
+    return sortOrder === 'discount_high'
+      ? discountB - discountA
+      : discountA - discountB;
+  });
+
+  const grid = products[0]?.parentElement;
+
+  if (!grid) return;
+
+  products.forEach((product) => grid.appendChild(product));
 }
 
 /**
