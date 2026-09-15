@@ -454,6 +454,22 @@ if (!customElements.get('facet-remove-component')) {
 class SortingFilterComponent extends Component {
   requiredRefs = ['details', 'summary', 'listbox'];
 
+  connectedCallback() {
+  super.connectedCallback();
+
+  const url = new URL(window.location.href);
+  const sortValue = url.searchParams.get('sort_by');
+
+  if (
+    sortValue === 'discount_high' ||
+    sortValue === 'discount_low'
+  ) {
+    requestAnimationFrame(() => {
+      this.sortProductsByDiscount(sortValue);
+    });
+  }
+}
+
   /**
    * Handles keyboard navigation in the sorting dropdown
    * @param {KeyboardEvent} event - The keyboard event
@@ -611,18 +627,20 @@ class SortingFilterComponent extends Component {
      * because Shopify does not support discount_high
      * or discount_low as native sort_by values.
      */
-    if (sortValue === 'discount_high' || sortValue === 'discount_low') {
-      this.sortProductsByDiscount(sortValue);
-      this.updateCustomSortStatus(sortValue);
+    if (
+        sortValue === 'discount_high' ||
+        sortValue === 'discount_low'
+      ) {
+        this.sortProductsByDiscount(sortValue);
 
-      const details = this.querySelector('details');
+        const details = this.querySelector('details');
 
-      if (details) {
-        details.removeAttribute('open');
+        if (details) {
+          details.removeAttribute('open');
+        }
+
+        return;
       }
-
-      return;
-    }
   }
 
   /*
@@ -679,133 +697,102 @@ class SortingFilterComponent extends Component {
   }
 
   sortProductsByDiscount(sortValue) {
-    const section = this.closest('.shopify-section');
+  const productGrid =
+    document.querySelector('ul[data-testid="product-grid"]') ||
+    document.querySelector('.product-grid[data-testid="product-grid"]') ||
+    document.querySelector('ul.product-grid');
 
-    if (!section) {
-      console.error('Discount sorting: Shopify section not found.');
-      return;
-    }
+  if (!productGrid) {
+    console.warn('Discount sorting: Product grid not found.');
+    return;
+  }
 
-    const productGrid = section.querySelector(
-      '[data-testid="product-grid"]'
+  const products = Array.from(
+    productGrid.querySelectorAll(
+      ':scope > .product-grid__item[data-discount]'
+    )
+  );
+
+  if (!products.length) {
+    console.warn(
+      'Discount sorting: No products with data-discount found.'
     );
+    return;
+  }
 
-    if (!productGrid) {
-      console.error('Discount sorting: Product grid not found.');
-      return;
+  console.log(
+    'Discount sorting:',
+    products.map((product) => ({
+      id: product.dataset.productId,
+      discount: product.dataset.discount
+    }))
+  );
+
+  products.sort((a, b) => {
+    const discountA = Number(a.dataset.discount) || 0;
+    const discountB = Number(b.dataset.discount) || 0;
+
+    if (sortValue === 'discount_high') {
+      return discountB - discountA;
     }
 
-    const products = Array.from(
-      productGrid.querySelectorAll(
-        '.product-grid__item[data-discount]'
-      )
-    );
+    return discountA - discountB;
+  });
 
-    if (!products.length) {
-      console.warn(
-        'Discount sorting: No products with data-discount found.'
-      );
-      return;
-    }
+  const fragment = document.createDocumentFragment();
 
-    /*
-    * Sort products by discount percentage.
-    */
-    products.sort((a, b) => {
-      const discountA = Number(a.dataset.discount) || 0;
-      const discountB = Number(b.dataset.discount) || 0;
+  products.forEach((product) => {
+    fragment.appendChild(product);
+  });
 
-      if (sortValue === 'discount_high') {
-        return discountB - discountA;
-      }
+  productGrid.appendChild(fragment);
 
-      return discountA - discountB;
-    });
+  // Update desktop radio buttons
+  this.querySelectorAll(
+    'input[name="sort_by"]'
+  ).forEach((input) => {
+    input.checked = input.value === sortValue;
 
-    /*
-    * Reinsert products in the new order.
-    */
-    const fragment = document.createDocumentFragment();
+    const option = input.closest('.sorting-filter__option');
 
-    products.forEach((product) => {
-      fragment.appendChild(product);
-    });
-
-    productGrid.appendChild(fragment);
-
-    /*
-    * Update selected radio buttons.
-    */
-    this.querySelectorAll(
-      'input[name="sort_by"]'
-    ).forEach((input) => {
-      if (!(input instanceof HTMLInputElement)) return;
-
-      input.checked = input.value === sortValue;
-    });
-
-    /*
-    * Update aria-selected and tabindex.
-    */
-    this.querySelectorAll(
-      '.sorting-filter__option'
-    ).forEach((option) => {
-      const input = option.querySelector(
-        'input[name="sort_by"]'
-      );
-
-      if (!(input instanceof HTMLInputElement)) return;
-
-      const selected = input.value === sortValue;
-
+    if (option) {
       option.setAttribute(
         'aria-selected',
-        selected ? 'true' : 'false'
+        input.value === sortValue ? 'true' : 'false'
       );
 
       option.setAttribute(
         'tabindex',
-        selected ? '0' : '-1'
+        input.value === sortValue ? '0' : '-1'
       );
-    });
-
-    /*
-    * Update mobile select.
-    */
-    const select = this.querySelector(
-      'select[name="sort_by"]'
-    );
-
-    if (select instanceof HTMLSelectElement) {
-      select.value = sortValue;
     }
+  });
 
-    /*
-    * Update the status text.
-    */
-    this.updateCustomSortStatus(sortValue);
+  // Update mobile select
+  const select = this.querySelector('select[name="sort_by"]');
 
-    /*
-    * Store the custom sorting value in the URL.
-    */
-    const url = new URL(window.location.href);
-
-    url.searchParams.set('sort_by', sortValue);
-
-    /*
-    * Always start from page 1 after changing sorting.
-    */
-    url.searchParams.delete('page');
-
-    history.pushState(
-      {
-        urlParameters: url.searchParams.toString()
-      },
-      '',
-      url.toString()
-    );
+  if (select) {
+    select.value = sortValue;
   }
 
+  // Update URL without reloading the collection
+  const url = new URL(window.location.href);
+
+  url.searchParams.set('sort_by', sortValue);
+  url.searchParams.delete('page');
+
+  window.history.replaceState(
+    {
+      urlParameters: url.searchParams.toString()
+    },
+    '',
+    url.toString()
+  );
+
+  console.log(
+    `Products sorted by discount: ${sortValue}`
+  );
+}
 
 
 }
